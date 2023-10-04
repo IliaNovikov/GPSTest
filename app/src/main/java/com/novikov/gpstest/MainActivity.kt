@@ -12,17 +12,29 @@ import com.yandex.mapkit.MapKitFactory
 import android.Manifest
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Color
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationRequest
 import android.util.Log
 import android.widget.Toast
 import androidx.core.content.ContextCompat
+import com.yandex.mapkit.RequestPoint
+import com.yandex.mapkit.RequestPointType
+import com.yandex.mapkit.directions.DirectionsFactory
+import com.yandex.mapkit.directions.driving.DrivingOptions
+import com.yandex.mapkit.directions.driving.DrivingRoute
+import com.yandex.mapkit.directions.driving.DrivingSession.DrivingRouteListener
+import com.yandex.mapkit.directions.driving.VehicleOptions
+import com.yandex.mapkit.directions.driving.VehicleType
 import com.yandex.mapkit.geometry.Point
 import com.yandex.mapkit.map.CameraPosition
+import com.yandex.mapkit.map.IconStyle
 import com.yandex.mapkit.map.Map
 import com.yandex.mapkit.map.MapObjectCollection
 import com.yandex.mapkit.map.PlacemarkMapObject
+import com.yandex.mapkit.map.PolygonMapObject
+import com.yandex.runtime.Error
 import com.yandex.runtime.image.ImageProvider
 
 
@@ -104,14 +116,15 @@ class MainActivity : AppCompatActivity(){
                 map.move(
                     CameraPosition(
                         Point(it.latitude, it.longitude),
-                        /* zoom = */ 18.0f,
-                        /* azimuth = */ 250.0f,
-                        /* tilt = */ 30.0f
+                        /* zoom = */ 16.0f,
+                        /* azimuth = */ 0f,
+                        /* tilt = */ 0f
                     )
                 )
             }
             Log.i("latitude", startpos.latitude.toString())
             Log.i("longitude", startpos.longitude.toString())
+
             setMark()
         }
     }
@@ -143,12 +156,12 @@ class MainActivity : AppCompatActivity(){
     }
 
     private fun setMark() {
-        val marker = R.drawable.marker
-        mapObjectCollection = map.mapObjects
-        placemarkMapObject = mapObjectCollection.addPlacemark(
+        val marker = R.drawable.location
+        mapObjectCollection = map.mapObjects.addCollection()
+        placemarkMapObject = map.mapObjects.addPlacemark().apply {
             Point(startpos.latitude, startpos.longitude)
-        )
-        var placemarkMapObject2 = mapObjectCollection.addPlacemark(
+        }
+        val placemarkMapObject2 = mapObjectCollection.addPlacemark(
             Point(startpos.latitude + 0.01f, startpos.longitude + 0.01f)
         )
         Log.i("imageProvider", ImageProvider.fromResource(this, R.drawable.marker).toString())
@@ -157,6 +170,50 @@ class MainActivity : AppCompatActivity(){
         placemarkMapObject.setText("Ваше местоположение")
 
         placemarkMapObject2.setText("2 точка")
+
+        buildRoute(placemarkMapObject.geometry, placemarkMapObject2.geometry)
+
+//        map.mapObjects.addPlacemark().apply {
+//            geometry = Point(startpos.latitude, startpos.longitude)
+//            setIcon(ImageProvider.fromResource(this@MainActivity, R.drawable.marker))
+//            setIconStyle(IconStyle().apply {
+//                scale = 0.6f
+//            })
+//        }
+
+    }
+    private fun buildRoute(point1:Point, point2:Point){
+
+        val router = DirectionsFactory.getInstance().createDrivingRouter()
+        val routeOptions = DrivingOptions().apply {
+            routesCount = 3
+        }
+        val vehicleOptions = VehicleOptions().apply {
+            vehicleType = VehicleType.DEFAULT
+        }
+        val points = buildList {
+            add(RequestPoint(point1, RequestPointType.WAYPOINT, null, "0"))
+            add(RequestPoint(point1, RequestPointType.WAYPOINT, null, "1"))
+        }
+        Log.i("size", points.size.toString())
+
+        val drivingListener = object : DrivingRouteListener{
+            override fun onDrivingRoutes(p0: MutableList<DrivingRoute>) {
+                val selectedRoute = p0[0]
+                val polylineMapObject = map.mapObjects.addPolyline(selectedRoute.geometry)
+                polylineMapObject.strokeWidth = 1f
+                polylineMapObject.setStrokeColor(Color.BLACK)
+                Log.i("drivelistener", "end")
+
+            }
+
+            override fun onDrivingRoutesError(p0: Error) {
+                TODO("Not yet implemented")
+            }
+
+        }
+
+        router.requestRoutes(points, routeOptions, vehicleOptions, drivingListener)
 
     }
 }
